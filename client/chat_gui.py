@@ -13,6 +13,12 @@ def main(page: ft.Page):
     
     def navigate_to(page_name):
         page.go(page_name)
+
+    def navigate_to_chat_room(chat_id):
+        page.go(f'/chat_room/{chat_id}')
+
+    def navigate_to_chat_room_group(group_id):
+        page.go(f'/chat_room_group/{group_id}')
     
     def register_page():
         username = ft.TextField(label="Username", width=300)
@@ -127,9 +133,14 @@ def main(page: ft.Page):
                 user_list.controls.clear()
                 for user in response['users']:
                     user_list.controls.append(
-                        ft.TextButton(
-                            text=user,
-                            on_click=lambda e, user=user: navigate_to(f'/chat_room/{user}')
+                        ft.Container(
+                            content=ft.TextButton(
+                                text=user,
+                                on_click=lambda e, user=user: navigate_to_chat_room(user)
+                            ),
+                            bgcolor=ft.colors.LIGHT_BLUE_100,
+                            border_radius=8,
+                            padding=10
                         )
                     )
                 user_list.update()
@@ -158,9 +169,14 @@ def main(page: ft.Page):
                 group_list.controls.clear()
                 for group in response['groups']:
                     group_list.controls.append(
-                        ft.TextButton(
-                            text=group,
-                            on_click=lambda e, group=group: navigate_to(f'/chat_room_group/{group}')
+                        ft.Container(
+                            content=ft.TextButton(
+                                text=group,
+                                on_click=lambda e, group=group: navigate_to_chat_room_group(group)
+                            ),
+                            bgcolor=ft.colors.LIGHT_GREEN_100,
+                            border_radius=8,
+                            padding=10
                         )
                     )
                 group_list.update()
@@ -222,7 +238,12 @@ def main(page: ft.Page):
         def send_message(e):
             if chat_message.value:
                 response = client.send_message(chat_id, chat_message.value)
-                chat_list.controls.append(ft.Text(f"You: {chat_message.value}"))
+                chat_list.controls.append(ft.Container(
+                    content=ft.Text(f"You: {chat_message.value}"),
+                    bgcolor=ft.colors.BLUE_GREY_100,
+                    border_radius=8,
+                    padding=10
+                ))
                 chat_message.value = ""
                 chat_message.update()
                 chat_list.update()
@@ -236,7 +257,12 @@ def main(page: ft.Page):
                 messages = inbox['messages'].get(chat_id, [])
                 chat_list.controls.clear()
                 for msg in messages:
-                    chat_list.controls.append(ft.Text(f"{msg['msg_from']}: {msg['msg']}"))
+                    chat_list.controls.append(ft.Container(
+                        content=ft.Text(f"{msg['msg_from']}: {msg['msg']}"),
+                        bgcolor=ft.colors.BLUE_GREY_50 if msg['msg_from'] != chat_id else ft.colors.BLUE_GREY_100,
+                        border_radius=8,
+                        padding=10
+                    ))
                 chat_list.update()
                 logging.info(f"REFRESH INBOX response: {inbox}")
 
@@ -261,7 +287,12 @@ def main(page: ft.Page):
         def send_group_message(e):
             if chat_message.value:
                 response = client.send_group_message(group_id, chat_message.value)
-                chat_list.controls.append(ft.Text(f"You: {chat_message.value}"))
+                chat_list.controls.append(ft.Container(
+                    content=ft.Text(f"You: {chat_message.value}"),
+                    bgcolor=ft.colors.GREEN_100,
+                    border_radius=8,
+                    padding=10
+                ))
                 chat_message.value = ""
                 chat_message.update()
                 chat_list.update()
@@ -279,7 +310,12 @@ def main(page: ft.Page):
                             messages.append(msg)
                 chat_list.controls.clear()
                 for msg in messages:
-                    chat_list.controls.append(ft.Text(f"{msg['msg_from']}: {msg['msg']}"))
+                    chat_list.controls.append(ft.Container(
+                        content=ft.Text(f"{msg['msg_from']}: {msg['msg']}"),
+                        bgcolor=ft.colors.GREEN_50 if msg['msg_from'] != group_id else ft.colors.GREEN_100,
+                        border_radius=8,
+                        padding=10
+                    ))
                 chat_list.update()
                 logging.info(f"REFRESH GROUP INBOX response: {inbox}")
 
