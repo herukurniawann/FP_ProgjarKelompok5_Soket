@@ -91,8 +91,9 @@ def main(page: ft.Page):
         )
     
     def chat_type_page():
-        group_button = ft.ElevatedButton(text="Group Chat", on_click=lambda _: navigate_to('/chat_list/group'))
-        private_button = ft.ElevatedButton(text="Private Chat", on_click=lambda _: navigate_to('/chat_list/private'))
+        user_list_button = ft.ElevatedButton(text="User List", on_click=lambda _: navigate_to('/user_list'))
+        group_list_button = ft.ElevatedButton(text="Group List", on_click=lambda _: navigate_to('/group_list'))
+        create_group_button = ft.ElevatedButton(text="Create Group", on_click=lambda _: navigate_to('/group_create'))
         logout_button = ft.ElevatedButton(text="Logout", on_click=lambda _: logout())
         back_button = ft.TextButton(text="Back", on_click=lambda _: page.go('/login'))
 
@@ -104,8 +105,9 @@ def main(page: ft.Page):
             content=ft.Column(
                 controls=[
                     ft.Text("Select Chat Type", size=24, weight=ft.FontWeight.BOLD),
-                    group_button,
-                    private_button,
+                    user_list_button,
+                    group_list_button,
+                    create_group_button,
                     logout_button,
                     back_button
                 ],
@@ -116,32 +118,101 @@ def main(page: ft.Page):
             alignment=ft.alignment.center
         )
 
-    def chat_list_page(chat_type):
-        chat_list = ft.ListView(expand=1, spacing=10, padding=20)
-        
-        chats = client.get_inbox(chat_type)
-        
-        for chat in chats:
-            chat_list.controls.append(
-                ft.Container(
-                    content=ft.TextButton(
-                        text=chat['name'],
-                        on_click=lambda _, c=chat: navigate_to(f'/chat_room/{c["id"]}')
-                    ),
-                    bgcolor=ft.colors.BLUE_GREY_100,
-                    border_radius=8,
-                    padding=10
-                )
-            )
-        
-        back_button = ft.TextButton(text="Back", on_click=lambda _: page.go('/chat_type'))
+    def user_list_page():
+        user_list = ft.ListView(expand=1, spacing=10, padding=20)
 
-        return ft.Column(
-            controls=[
-                ft.Text(f"Chat List ({chat_type})", size=24, weight=ft.FontWeight.BOLD),
-                chat_list,
-                back_button
-            ]
+        def load_users():
+            response = client.list_users()
+            if response['status'] == 'OK':
+                user_list.controls.clear()
+                for user in response['users']:
+                    user_list.controls.append(
+                        ft.TextButton(
+                            text=user,
+                            on_click=lambda e, user=user: navigate_to(f'/chat_room/{user}')
+                        )
+                    )
+                user_list.update()
+
+        # Load users after view is rendered
+        page.views.append(ft.View("/user_list", controls=[
+            ft.Column(
+                controls=[
+                    ft.Text("User List", size=24, weight=ft.FontWeight.BOLD),
+                    user_list,
+                    ft.TextButton(text="Back", on_click=lambda _: navigate_to('/chat_type'))
+                ],
+                alignment=ft.MainAxisAlignment.CENTER,
+                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+            )
+        ]))
+        page.update()
+        load_users()
+
+    def group_list_page():
+        group_list = ft.ListView(expand=1, spacing=10, padding=20)
+
+        def load_groups():
+            response = client.list_groups()
+            if response['status'] == 'OK':
+                group_list.controls.clear()
+                for group in response['groups']:
+                    group_list.controls.append(
+                        ft.TextButton(
+                            text=group,
+                            on_click=lambda e, group=group: navigate_to(f'/chat_room_group/{group}')
+                        )
+                    )
+                group_list.update()
+
+        # Load groups after view is rendered
+        page.views.append(ft.View("/group_list", controls=[
+            ft.Column(
+                controls=[
+                    ft.Text("Group List", size=24, weight=ft.FontWeight.BOLD),
+                    group_list,
+                    ft.TextButton(text="Back", on_click=lambda _: navigate_to('/chat_type'))
+                ],
+                alignment=ft.MainAxisAlignment.CENTER,
+                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+            )
+        ]))
+        page.update()
+        load_groups()
+
+    def group_create_page():
+        group_name = ft.TextField(label="Group Name", width=300)
+        members = ft.TextField(label="Members (comma separated)", width=300)
+        status = ft.Text()
+
+        def create_group(e):
+            member_list = members.value.split(',')
+            response = client.create_group(group_name.value, member_list)
+            status.value = response.get('message', 'Group creation failed')
+            status.update()
+            if response['status'] == 'OK':
+                page.snack_bar = ft.SnackBar(content=ft.Text("Group created successfully!"))
+                page.snack_bar.open = True
+                page.update()
+
+        create_button = ft.ElevatedButton(text="Create Group", on_click=create_group)
+        back_button = ft.TextButton(text="Back", on_click=lambda _: navigate_to('/chat_type'))
+
+        return ft.Container(
+            content=ft.Column(
+                controls=[
+                    ft.Text("Create Group", size=24, weight=ft.FontWeight.BOLD),
+                    group_name,
+                    members,
+                    create_button,
+                    status,
+                    back_button
+                ],
+                alignment=ft.MainAxisAlignment.CENTER,
+                horizontal_alignment=ft.CrossAxisAlignment.CENTER,
+            ),
+            padding=20,
+            alignment=ft.alignment.center
         )
 
     def chat_room_page(chat_id):
@@ -160,20 +231,64 @@ def main(page: ft.Page):
         send_button = ft.ElevatedButton(text="Send", on_click=send_message)
         
         def refresh_inbox(e):
-            inbox = client.get_inbox(chat_id)
+            inbox = client.get_inbox()
             if inbox['status'] == 'OK':
-                messages = inbox['messages']
+                messages = inbox['messages'].get(chat_id, [])
+                chat_list.controls.clear()
                 for msg in messages:
-                    chat_list.controls.append(ft.Text(f"{msg['sender']}: {msg['content']}"))
+                    chat_list.controls.append(ft.Text(f"{msg['msg_from']}: {msg['msg']}"))
                 chat_list.update()
                 logging.info(f"REFRESH INBOX response: {inbox}")
 
         refresh_button = ft.ElevatedButton(text="Refresh", on_click=refresh_inbox)
-        back_button = ft.TextButton(text="Back", on_click=lambda _: page.go('/chat_list/group'))
+        back_button = ft.TextButton(text="Back", on_click=lambda _: navigate_to('/user_list'))
 
         return ft.Column(
             controls=[
-                ft.Row([ft.Text("Chat Room", size=24, weight=ft.FontWeight.BOLD), refresh_button]),
+                ft.Row([ft.Text(f"Chat Room with {chat_id}", size=24, weight=ft.FontWeight.BOLD), refresh_button]),
+                chat_list,
+                ft.Row(
+                    controls=[chat_message, send_button]
+                ),
+                back_button
+            ]
+        )
+
+    def chat_room_group_page(group_id):
+        chat_list = ft.ListView(expand=1, spacing=10, padding=20)
+        chat_message = ft.TextField(label="Message", expand=1)
+
+        def send_group_message(e):
+            if chat_message.value:
+                response = client.send_group_message(group_id, chat_message.value)
+                chat_list.controls.append(ft.Text(f"You: {chat_message.value}"))
+                chat_message.value = ""
+                chat_message.update()
+                chat_list.update()
+                logging.info(f"SEND GROUP MESSAGE response: {response}")
+
+        send_button = ft.ElevatedButton(text="Send", on_click=send_group_message)
+        
+        def refresh_inbox(e):
+            inbox = client.get_inbox()
+            if inbox['status'] == 'OK':
+                messages = []
+                for msg_list in inbox['messages'].values():
+                    for msg in msg_list:
+                        if msg['msg_to'] == group_id:
+                            messages.append(msg)
+                chat_list.controls.clear()
+                for msg in messages:
+                    chat_list.controls.append(ft.Text(f"{msg['msg_from']}: {msg['msg']}"))
+                chat_list.update()
+                logging.info(f"REFRESH GROUP INBOX response: {inbox}")
+
+        refresh_button = ft.ElevatedButton(text="Refresh", on_click=refresh_inbox)
+        back_button = ft.TextButton(text="Back", on_click=lambda _: navigate_to('/group_list'))
+
+        return ft.Column(
+            controls=[
+                ft.Row([ft.Text(f"Group Chat Room {group_id}", size=24, weight=ft.FontWeight.BOLD), refresh_button]),
                 chat_list,
                 ft.Row(
                     controls=[chat_message, send_button]
@@ -190,12 +305,18 @@ def main(page: ft.Page):
             page.views.append(ft.View("/login", controls=[login_page()]))
         elif route.route == "/chat_type":
             page.views.append(ft.View("/chat_type", controls=[chat_type_page()]))
-        elif route.route.startswith("/chat_list/"):
-            chat_type = route.route.split('/')[-1]
-            page.views.append(ft.View(f"/chat_list/{chat_type}", controls=[chat_list_page(chat_type)]))
+        elif route.route == "/user_list":
+            user_list_page()
+        elif route.route == "/group_list":
+            group_list_page()
+        elif route.route == "/group_create":
+            page.views.append(ft.View("/group_create", controls=[group_create_page()]))
         elif route.route.startswith("/chat_room/"):
             chat_id = route.route.split('/')[-1]
             page.views.append(ft.View(f"/chat_room/{chat_id}", controls=[chat_room_page(chat_id)]))
+        elif route.route.startswith("/chat_room_group/"):
+            group_id = route.route.split('/')[-1]
+            page.views.append(ft.View(f"/chat_room_group/{group_id}", controls=[chat_room_group_page(group_id)]))
         page.update()
 
     def view_pop(view):

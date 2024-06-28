@@ -51,6 +51,26 @@ class ChatClient:
         string = f"inbox {self.tokenid} \r\n"
         return self.sendstring(string)
 
+    def list_users(self):
+        string = "listusers \r\n"
+        return self.sendstring(string)
+
+    def create_group(self, group_name, members):
+        if not self.tokenid:
+            return "Error, not authorized"
+        string = f"creategroup {self.tokenid} {group_name} " + " ".join(members) + " \r\n"
+        return self.sendstring(string)
+
+    def list_groups(self):
+        string = "listgroups \r\n"
+        return self.sendstring(string)
+
+    def send_group_message(self, group_name, message):
+        if not self.tokenid:
+            return "Error, not authorized"
+        string = f"sendgroup {self.tokenid} {group_name} {message} \r\n"
+        return self.sendstring(string)
+
     def logout(self):
         self.tokenid = ""
         logging.info("User logged out")

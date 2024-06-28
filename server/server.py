@@ -14,20 +14,20 @@ class ProcessTheClient(threading.Thread):
         threading.Thread.__init__(self)
 
     def run(self):
-        rcv=""
+        rcv = ""
         while True:
             data = self.connection.recv(2048)
             if data:
                 d = data.decode()
-                rcv=rcv+d
-                if rcv[-2:]=='\r\n':
-                    logging.warning("data dari client: {}" . format(rcv))
+                rcv = rcv + d
+                if rcv[-2:] == '\r\n':
+                    logging.warning("data dari client: {}".format(rcv))
                     hasil = chatserver.proses(rcv)
-                    logging.warning("balas ke  client: {}" . format(hasil))
+                    logging.warning("balas ke client: {}".format(hasil))
                     hasil = json.dumps(hasil)
-                    hasil=hasil+"\r\n\r\n"
+                    hasil = hasil + "\r\n\r\n"
                     self.connection.sendall(hasil.encode())
-                    rcv=""
+                    rcv = ""
             else:
                 break
         self.connection.close()
@@ -40,11 +40,11 @@ class Server(threading.Thread):
         threading.Thread.__init__(self)
 
     def run(self):
-        self.my_socket.bind(('0.0.0.0',8889))
+        self.my_socket.bind(('0.0.0.0', 8889))
         self.my_socket.listen(1)
         while True:
             self.connection, self.client_address = self.my_socket.accept()
-            logging.warning("connection from {}" . format(self.client_address))
+            logging.warning("connection from {}".format(self.client_address))
             
             clt = ProcessTheClient(self.connection, self.client_address)
             clt.start()
@@ -56,5 +56,5 @@ def main():
     svr = Server()
     svr.start()
 
-if __name__=="__main__":
+if __name__ == "__main__":
     main()
