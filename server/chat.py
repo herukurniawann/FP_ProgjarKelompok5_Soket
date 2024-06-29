@@ -1,7 +1,7 @@
 import json
 import uuid
 import logging
-from queue import Queue
+from datetime import datetime
 
 class Chat:
     def __init__(self):
@@ -29,18 +29,25 @@ class Chat:
                 return self.register_user(username, password)
             elif command == 'send':
                 sessionid = j[1].strip()
+                if sessionid not in self.sessions:
+                    return {'status': 'ERROR', 'message': 'Invalid session'}
                 usernameto = j[2].strip()
                 message = " ".join(j[3:])
                 usernamefrom = self.sessions[sessionid]['username']
                 return self.send_message(usernamefrom, usernameto, message)
             elif command == 'inbox':
                 sessionid = j[1].strip()
+                if sessionid not in self.sessions:
+                    return {'status': 'ERROR', 'message': 'Invalid session'}
                 username = self.sessions[sessionid]['username']
+                logging.warning(f"User {username} requested inbox")
                 return self.get_inbox(username)
             elif command == 'listusers':
                 return self.list_users()
             elif command == 'creategroup':
                 sessionid = j[1].strip()
+                if sessionid not in self.sessions:
+                    return {'status': 'ERROR', 'message': 'Invalid session'}
                 group_name = j[2].strip()
                 members = j[3:]
                 return self.create_group(group_name, members)
@@ -48,17 +55,22 @@ class Chat:
                 return self.list_groups()
             elif command == 'sendgroup':
                 sessionid = j[1].strip()
+                if sessionid not in self.sessions:
+                    return {'status': 'ERROR', 'message': 'Invalid session'}
                 group_name = j[2].strip()
                 message = " ".join(j[3:])
                 usernamefrom = self.sessions[sessionid]['username']
                 return self.send_group_message(usernamefrom, group_name, message)
             else:
                 return {'status': 'ERROR', 'message': '**Protocol Tidak Benar'}
-        except KeyError:
+        except KeyError as e:
+            logging.error(f"KeyError in proses: {str(e)}")
             return {'status': 'ERROR', 'message': 'Informasi tidak ditemukan'}
-        except IndexError:
+        except IndexError as e:
+            logging.error(f"IndexError in proses: {str(e)}")
             return {'status': 'ERROR', 'message': '--Protocol Tidak Benar'}
         except Exception as e:
+            logging.error(f"Exception in proses: {str(e)}")
             return {'status': 'ERROR', 'message': 'Terjadi kesalahan pada server'}
 
     def autentikasi_user(self, username, password):
@@ -68,12 +80,14 @@ class Chat:
             return {'status': 'ERROR', 'message': 'Password Salah'}
         tokenid = str(uuid.uuid4())
         self.sessions[tokenid] = {'username': username, 'userdetail': self.users[username]}
+        logging.warning(f"User {username} authenticated with session {tokenid}")
         return {'status': 'OK', 'tokenid': tokenid}
 
     def register_user(self, username, password):
         if username in self.users:
             return {'status': 'ERROR', 'message': 'User Already Exists'}
         self.users[username] = {'nama': username, 'password': password, 'incoming': {}, 'outgoing': {}}
+        logging.warning(f"User {username} registered successfully")
         return {'status': 'OK', 'message': 'User Registered Successfully'}
 
     def list_users(self):
@@ -83,6 +97,7 @@ class Chat:
         if group_name in self.groups:
             return {'status': 'ERROR', 'message': 'Group Already Exists'}
         self.groups[group_name] = members
+        logging.warning(f"Group {group_name} created with members {members}")
         return {'status': 'OK', 'message': 'Group Created'}
 
     def list_groups(self):
@@ -91,18 +106,29 @@ class Chat:
     def send_message(self, username_from, username_dest, message):
         if username_from not in self.users or username_dest not in self.users:
             return {'status': 'ERROR', 'message': 'User Tidak Ditemukan'}
-        message = {'msg_from': username_from, 'msg_to': username_dest, 'msg': message}
-        self.users[username_dest]['incoming'].setdefault(username_from, Queue()).put(message)
-        self.users[username_from]['outgoing'].setdefault(username_dest, Queue()).put(message)
+        timestamp = datetime.now().isoformat()
+        msg = {'msg_from': username_from, 'msg_to': username_dest, 'msg': message, 'timestamp': timestamp}
+        if username_dest not in self.users[username_from]['outgoing']:
+            self.users[username_from]['outgoing'][username_dest] = []
+        if username_from not in self.users[username_dest]['incoming']:
+            self.users[username_dest]['incoming'][username_from] = []
+        self.users[username_dest]['incoming'][username_from].append(msg)
+        self.users[username_from]['outgoing'][username_dest].append(msg)
+        logging.warning(f"Sent message from {username_from} to {username_dest}: {msg}")
+        logging.warning(f"Current incoming for {username_dest}: {self.users[username_dest]['incoming']}")
+        logging.warning(f"Current outgoing for {username_from}: {self.users[username_from]['outgoing']}")
         return {'status': 'OK', 'message': 'Message Sent'}
 
     def get_inbox(self, username):
         incoming = self.users[username]['incoming']
-        msgs = {users: [] for users in incoming}
-        for users in incoming:
-            while not incoming[users].empty():
-                msgs[users].append(incoming[users].get_nowait())
-        return {'status': 'OK', 'messages': msgs}
+        outgoing = self.users[username]['outgoing']
+        incoming_msgs = [msg for messages in incoming.values() for msg in messages]
+        outgoing_msgs = [msg for messages in outgoing.values() for msg in messages]
+        all_msgs = incoming_msgs + outgoing_msgs
+        all_msgs.sort(key=lambda x: x['timestamp'])
+        
+        logging.warning(f"Inbox for {username} - All Messages: {all_msgs}")
+        return {'status': 'OK', 'messages': all_msgs}
 
     def send_group_message(self, username_from, group_name, message):
         if group_name not in self.groups:

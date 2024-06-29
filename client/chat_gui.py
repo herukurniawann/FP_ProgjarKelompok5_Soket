@@ -1,5 +1,6 @@
 import flet as ft
 from client import ChatClient
+from datetime import datetime
 import logging
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -10,7 +11,7 @@ class UserList(ft.UserControl):
     def __init__(self, page):
         super().__init__()
         self.page = page
-        self.user_list = ft.ListView(expand=True, spacing=10, padding=20)  # Use expand for flexibility
+        self.user_list = ft.ListView(expand=True, spacing=10, padding=20)
 
     def did_mount(self):
         self.load_users()
@@ -33,13 +34,20 @@ class UserList(ft.UserControl):
         self.page.go(f'/chat_room/{chat_id}')
 
     def build(self):
-        return self.user_list
+        return ft.View(
+            route="/user_list",
+            controls=[
+                ft.Row([ft.Text("User List", size=24, weight=ft.FontWeight.BOLD)]),
+                self.user_list,
+                ft.TextButton(text="Back", on_click=lambda _: self.page.go('/chat_type'))
+            ]
+        )
 
 class GroupList(ft.UserControl):
     def __init__(self, page):
         super().__init__()
         self.page = page
-        self.group_list = ft.ListView(expand=True, spacing=10, padding=20)  # Use expand for flexibility
+        self.group_list = ft.ListView(expand=True, spacing=10, padding=20)
 
     def did_mount(self):
         self.load_groups()
@@ -62,8 +70,145 @@ class GroupList(ft.UserControl):
         self.page.go(f'/chat_room_group/{group_id}')
 
     def build(self):
-        return self.group_list
+        return ft.View(
+            route="/group_list",
+            controls=[
+                ft.Row([ft.Text("Group List", size=24, weight=ft.FontWeight.BOLD)]),
+                self.group_list,
+                ft.TextButton(text="Back", on_click=lambda _: self.page.go('/chat_type'))
+            ]
+        )
 
+def chat_room_page(page, chat_id):
+    chat_list = ft.ListView(expand=1, spacing=10, padding=20, auto_scroll=True)
+    chat_message = ft.TextField(label="Message", expand=1, on_submit=lambda e: send_message())
+    send_button = ft.IconButton(icon=ft.icons.SEND_ROUNDED, on_click=lambda e: send_message())
+    back_button = ft.TextButton(text="Back", on_click=lambda _: page.go('/user_list'))
+
+    def send_message():
+        if chat_message.value:
+            response = client.send_message(chat_id, chat_message.value)
+            add_message_to_chat_list("You", chat_message.value, datetime.now().isoformat(), is_sender=True)
+            chat_message.value = ""
+            chat_message.update()
+            chat_list.update()
+            logging.info(f"SEND MESSAGE response: {response}")
+
+    def refresh_inbox(e=None):
+        inbox = client.get_inbox()
+        if inbox['status'] == 'OK':
+            messages = inbox['messages']
+            chat_list.controls.clear()
+            for msg in messages:
+                is_sender = (msg['msg_from'] != chat_id)
+                add_message_to_chat_list(msg['msg_from'], msg['msg'], msg['timestamp'], is_sender)
+            chat_list.update()
+            logging.info(f"REFRESH INBOX response: {inbox}")
+
+    def add_message_to_chat_list(sender, message, timestamp, is_sender):
+        timestamp_dt = datetime.fromisoformat(timestamp)
+        if timestamp_dt.date() == datetime.today().date():
+            formatted_time = timestamp_dt.strftime('%H:%M:%S')
+        else:
+            formatted_time = timestamp_dt.strftime('%Y-%m-%d %H:%M:%S')
+
+        bubble_color = ft.colors.GREEN if is_sender else ft.colors.BLUE
+        text_color = ft.colors.WHITE if is_sender else ft.colors.WHITE
+        alignment = ft.alignment.center_right if is_sender else ft.alignment.center_left
+
+        # Chat bubble
+        chat_bubble = ft.Container(
+            content=ft.Text(message, color=text_color),
+            bgcolor=bubble_color,
+            border_radius=10,
+            padding=10,
+            alignment=alignment
+        )
+
+        # Timestamp
+        timestamp_text = ft.Text(formatted_time, size=10, color=ft.colors.GREY, text_align="right" if is_sender else "left")
+
+        # Align both bubble and timestamp
+        message_with_timestamp = ft.Container(
+            content=ft.Column(
+                controls=[
+                    chat_bubble,
+                    timestamp_text
+                ],
+                spacing=2,
+                horizontal_alignment=ft.CrossAxisAlignment.END if is_sender else ft.CrossAxisAlignment.START
+            ),
+            padding=10,
+            margin=10,
+            alignment=alignment
+        )
+
+        chat_list.controls.append(message_with_timestamp)
+
+    refresh_button = ft.ElevatedButton(text="Refresh", on_click=refresh_inbox)
+    header = ft.Row([ft.Text(f"Chat Room with {chat_id}", size=24, weight=ft.FontWeight.BOLD), refresh_button])
+
+    # Create a new view with the components
+    view = ft.View(
+        route=f"/chat_room/{chat_id}",
+        controls=[
+            header,
+            chat_list,
+            ft.Row(controls=[chat_message, send_button]),
+            back_button
+        ]
+    )
+
+    page.views.append(view)
+    page.update()
+
+    refresh_inbox()
+
+def chat_room_group_page(page, group_id):
+    chat_list = ft.ListView(expand=1, spacing=10, padding=20, auto_scroll=True)
+    chat_message = ft.TextField(label="Message", expand=1, on_submit=lambda e: send_group_message())
+    send_button = ft.IconButton(icon=ft.icons.SEND_ROUNDED, on_click=lambda e: send_group_message())
+    back_button = ft.TextButton(text="Back", on_click=lambda _: page.go('/group_list'))
+
+    def send_group_message():
+        if chat_message.value:
+            response = client.send_group_message(group_id, chat_message.value)
+            chat_list.controls.append(ft.Text(f"You: {chat_message.value}"))
+            chat_message.value = ""
+            chat_message.update()
+            chat_list.update()
+            logging.info(f"SEND GROUP MESSAGE response: {response}")
+
+    def refresh_inbox(e=None):
+        inbox = client.get_inbox()
+        if inbox['status'] == 'OK':
+            messages = []
+            for msg_list in inbox['messages'].values():
+                for msg in msg_list:
+                    if msg['msg_to'] == group_id:
+                        messages.append(msg)
+            chat_list.controls.clear()
+            for msg in messages:
+                chat_list.controls.append(ft.Text(f"{msg['msg_from']}: {msg['msg']}"))
+            chat_list.update()
+            logging.info(f"REFRESH GROUP INBOX response: {inbox}")
+
+    refresh_button = ft.ElevatedButton(text="Refresh", on_click=refresh_inbox)
+    header = ft.Row([ft.Text(f"Group Chat Room {group_id}", size=24, weight=ft.FontWeight.BOLD), refresh_button])
+
+    # Create a new view with the components
+    view = ft.View(
+        route=f"/chat_room_group/{group_id}",
+        controls=[
+            header,
+            chat_list,
+            ft.Row(controls=[chat_message, send_button]),
+            back_button
+        ]
+    )
+
+    page.views.append(view)
+    page.update()
 
 def main(page: ft.Page):
     page.title = "Chat Application"
@@ -218,112 +363,6 @@ def main(page: ft.Page):
             alignment=ft.alignment.center
         )
 
-    def chat_room_page(chat_id):
-        chat_list = ft.ListView(expand=1, spacing=10, padding=20)
-        chat_message = ft.TextField(label="Message", expand=1)
-
-        def send_message(e):
-            if chat_message.value:
-                response = client.send_message(chat_id, chat_message.value)
-                chat_list.controls.append(ft.Container(
-                    content=ft.Text(f"You: {chat_message.value}"),
-                    bgcolor=ft.colors.BLUE_GREY_100,
-                    border_radius=8,
-                    padding=10,
-                    margin=5
-                ))
-                chat_message.value = ""
-                chat_message.update()
-                chat_list.update()
-                logging.info(f"SEND MESSAGE response: {response}")
-
-        send_button = ft.ElevatedButton(text="Send", on_click=send_message)
-        
-        def refresh_inbox(e):
-            inbox = client.get_inbox()
-            if inbox['status'] == 'OK':
-                messages = inbox['messages'].get(chat_id, [])
-                chat_list.controls.clear()
-                for msg in messages:
-                    chat_list.controls.append(ft.Container(
-                        content=ft.Text(f"{msg['msg_from']}: {msg['msg']}"),
-                        bgcolor=ft.colors.BLUE_GREY_50 if msg['msg_from'] != chat_id else ft.colors.BLUE_GREY_100,
-                        border_radius=8,
-                        padding=10,
-                        margin=5
-                    ))
-                chat_list.update()
-                logging.info(f"REFRESH INBOX response: {inbox}")
-
-        refresh_button = ft.ElevatedButton(text="Refresh", on_click=refresh_inbox)
-        back_button = ft.TextButton(text="Back", on_click=lambda _: navigate_to('/user_list'))
-
-        return ft.Column(
-            controls=[
-                ft.Row([ft.Text(f"Chat Room with {chat_id}", size=24, weight=ft.FontWeight.BOLD), refresh_button]),
-                chat_list,
-                ft.Row(
-                    controls=[chat_message, send_button]
-                ),
-                back_button
-            ]
-        )
-
-    def chat_room_group_page(group_id):
-        chat_list = ft.ListView(expand=1, spacing=10, padding=20)
-        chat_message = ft.TextField(label="Message", expand=1)
-
-        def send_group_message(e):
-            if chat_message.value:
-                response = client.send_group_message(group_id, chat_message.value)
-                chat_list.controls.append(ft.Container(
-                    content=ft.Text(f"You: {chat_message.value}"),
-                    bgcolor=ft.colors.GREEN_100,
-                    border_radius=8,
-                    padding=10,
-                    margin=5
-                ))
-                chat_message.value = ""
-                chat_message.update()
-                chat_list.update()
-                logging.info(f"SEND GROUP MESSAGE response: {response}")
-
-        send_button = ft.ElevatedButton(text="Send", on_click=send_group_message)
-        
-        def refresh_inbox(e):
-            inbox = client.get_inbox()
-            if inbox['status'] == 'OK':
-                messages = []
-                for msg_list in inbox['messages'].values():
-                    for msg in msg_list:
-                        if msg['msg_to'] == group_id:
-                            messages.append(msg)
-                chat_list.controls.clear()
-                for msg in messages:
-                    chat_list.controls.append(ft.Container(
-                        content=ft.Text(f"{msg['msg_from']}: {msg['msg']}"),
-                        bgcolor=ft.colors.GREEN_50 if msg['msg_from'] != group_id else ft.colors.GREEN_100,
-                        border_radius=8,
-                        padding=10,
-                        margin=5
-                    ))
-                chat_list.update()
-                logging.info(f"REFRESH GROUP INBOX response: {inbox}")
-
-        refresh_button = ft.ElevatedButton(text="Refresh", on_click=refresh_inbox)
-        back_button = ft.TextButton(text="Back", on_click=lambda _: navigate_to('/group_list'))
-
-        return ft.Column(
-            controls=[
-                ft.Row([ft.Text(f"Group Chat Room {group_id}", size=24, weight=ft.FontWeight.BOLD), refresh_button]),
-                chat_list,
-                ft.Row(
-                    controls=[chat_message, send_button]
-                ),
-                back_button
-            ]
-        )
-
     def route_change(route):
         page.views.clear()
         if route.route == "/register":
@@ -348,19 +387,17 @@ def main(page: ft.Page):
                 )
             )
         elif route.route == "/user_list":
-            page.views.append(
-                ft.View(
-                    route="/user_list",
-                    controls=[UserList(page)],
-                )
-            )
+            user_list_view = UserList(page)
+            view = user_list_view.build()
+            page.views.append(view)
+            page.update()
+            user_list_view.did_mount()  # Ensure users are loaded
         elif route.route == "/group_list":
-            page.views.append(
-                ft.View(
-                    route="/group_list",
-                    controls=[GroupList(page)],
-                )
-            )
+            group_list_view = GroupList(page)
+            view = group_list_view.build()
+            page.views.append(view)
+            page.update()
+            group_list_view.did_mount()  # Ensure groups are loaded
         elif route.route == "/group_create":
             page.views.append(
                 ft.View(
@@ -373,7 +410,7 @@ def main(page: ft.Page):
             page.views.append(
                 ft.View(
                     route=f"/chat_room/{chat_id}",
-                    controls=[chat_room_page(chat_id)],
+                    controls=[chat_room_page(page, chat_id)],
                 )
             )
         elif route.route.startswith("/chat_room_group/"):
@@ -381,7 +418,7 @@ def main(page: ft.Page):
             page.views.append(
                 ft.View(
                     route=f"/chat_room_group/{group_id}",
-                    controls=[chat_room_group_page(group_id)],
+                    controls=[chat_room_group_page(page, group_id)],
                 )
             )
         page.update()
