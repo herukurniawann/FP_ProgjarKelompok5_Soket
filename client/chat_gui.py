@@ -116,7 +116,6 @@ def chat_room_page(page, chat_id):
         text_color = ft.colors.WHITE if is_sender else ft.colors.WHITE
         alignment = ft.alignment.center_right if is_sender else ft.alignment.center_left
 
-        # Chat bubble
         chat_bubble = ft.Container(
             content=ft.Text(message, color=text_color),
             bgcolor=bubble_color,
@@ -125,10 +124,8 @@ def chat_room_page(page, chat_id):
             alignment=alignment
         )
 
-        # Timestamp
         timestamp_text = ft.Text(formatted_time, size=10, color=ft.colors.GREY, text_align="right" if is_sender else "left")
 
-        # Align both bubble and timestamp
         message_with_timestamp = ft.Container(
             content=ft.Column(
                 controls=[
@@ -148,7 +145,6 @@ def chat_room_page(page, chat_id):
     refresh_button = ft.ElevatedButton(text="Refresh", on_click=refresh_inbox)
     header = ft.Row([ft.Text(f"Chat Room with {chat_id}", size=24, weight=ft.FontWeight.BOLD), refresh_button])
 
-    # Create a new view with the components
     view = ft.View(
         route=f"/chat_room/{chat_id}",
         controls=[
@@ -196,7 +192,6 @@ def chat_room_group_page(page, group_id):
     refresh_button = ft.ElevatedButton(text="Refresh", on_click=refresh_inbox)
     header = ft.Row([ft.Text(f"Group Chat Room {group_id}", size=24, weight=ft.FontWeight.BOLD), refresh_button])
 
-    # Create a new view with the components
     view = ft.View(
         route=f"/chat_room_group/{group_id}",
         controls=[
@@ -391,13 +386,13 @@ def main(page: ft.Page):
             view = user_list_view.build()
             page.views.append(view)
             page.update()
-            user_list_view.did_mount()  # Ensure users are loaded
+            user_list_view.did_mount()
         elif route.route == "/group_list":
             group_list_view = GroupList(page)
             view = group_list_view.build()
             page.views.append(view)
             page.update()
-            group_list_view.did_mount()  # Ensure groups are loaded
+            group_list_view.did_mount() 
         elif route.route == "/group_create":
             page.views.append(
                 ft.View(

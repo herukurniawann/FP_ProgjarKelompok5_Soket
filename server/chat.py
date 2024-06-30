@@ -7,12 +7,16 @@ class Chat:
     def __init__(self):
         self.sessions = {}
         self.users = {
-            'messi': {'nama': 'Lionel Messi', 'password': 'surabaya', 'incoming': {}, 'outgoing': {}},
-            'henderson': {'nama': 'Jordan Henderson', 'password': 'surabaya', 'incoming': {}, 'outgoing': {}},
-            'lineker': {'nama': 'Gary Lineker', 'password': 'surabaya', 'incoming': {}, 'outgoing': {}}
+            'hisan': {'nama': 'Hisan', 'password': 'surabaya', 'incoming': {}, 'outgoing': {}},
+            'heru': {'nama': 'Heru', 'password': 'surabaya', 'incoming': {}, 'outgoing': {}},
+            'daffa': {'nama': 'Daffa', 'password': 'surabaya', 'incoming': {}, 'outgoing': {}},
+            'baihaqi': {'nama': 'Baihaqi', 'password': 'surabaya', 'incoming': {}, 'outgoing': {}},
+            'arfi': {'nama': 'Arfi', 'password': 'surabaya', 'incoming': {}, 'outgoing': {}},
+            'ulya': {'nama': 'Ulya', 'password': 'surabaya', 'incoming': {}, 'outgoing': {}},
         }
         self.groups = {
-            'group1': ['messi', 'henderson', 'lineker']
+            'group1': ['hisan', 'heru', 'daffa'],
+            'group2': ['baihaqi', 'arfi', 'ulya'],
         }
 
     def proses(self, data):
