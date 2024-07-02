@@ -10,6 +10,7 @@ class ChatClient:
         self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.sock.connect(self.server_address)
         self.tokenid = ""
+        self.username = ""
 
     def sendstring(self, string):
         try:
@@ -33,6 +34,7 @@ class ChatClient:
         result = self.sendstring(string)
         if result['status'] == 'OK':
             self.tokenid = result['tokenid']
+            self.username = username
         return result
 
     def register(self, username, password):

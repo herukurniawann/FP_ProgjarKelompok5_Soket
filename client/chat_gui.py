@@ -2,6 +2,7 @@ import flet as ft
 from client import ChatClient
 from datetime import datetime
 import logging
+import asyncio
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -21,13 +22,14 @@ class UserList(ft.UserControl):
         if response['status'] == 'OK':
             self.user_list.controls.clear()
             for user in response['users']:
-                self.user_list.controls.append(
-                    ft.ListTile(
-                        leading=ft.Icon(ft.icons.PERSON),
-                        title=ft.Text(f"{user}"),
-                        on_click=lambda e, user=user: self.navigate_to_chat_room(user),
+                if user != client.username:
+                    self.user_list.controls.append(
+                        ft.ListTile(
+                            leading=ft.Icon(ft.icons.PERSON),
+                            title=ft.Text(f"{user}"),
+                            on_click=lambda e, user=user: self.navigate_to_chat_room(user),
+                        )
                     )
-                )
             self.user_list.update()
 
     def navigate_to_chat_room(self, chat_id):
@@ -37,7 +39,7 @@ class UserList(ft.UserControl):
         return ft.View(
             route="/user_list",
             controls=[
-                ft.Row([ft.Text("User List", size=24, weight=ft.FontWeight.BOLD)]),
+                ft.Row([ft.Text("Private Chat", size=24, weight=ft.FontWeight.BOLD)]),
                 self.user_list,
                 ft.TextButton(text="Back", on_click=lambda _: self.page.go('/chat_type'))
             ]
@@ -73,7 +75,7 @@ class GroupList(ft.UserControl):
         return ft.View(
             route="/group_list",
             controls=[
-                ft.Row([ft.Text("Group List", size=24, weight=ft.FontWeight.BOLD)]),
+                ft.Row([ft.Text("Group Chat", size=24, weight=ft.FontWeight.BOLD)]),
                 self.group_list,
                 ft.TextButton(text="Back", on_click=lambda _: self.page.go('/chat_type'))
             ]
@@ -100,8 +102,9 @@ def chat_room_page(page, chat_id):
             messages = inbox['messages']
             chat_list.controls.clear()
             for msg in messages:
-                is_sender = (msg['msg_from'] != chat_id)
-                add_message_to_chat_list(msg['msg_from'], msg['msg'], msg['timestamp'], is_sender)
+                if msg['msg_to'] == chat_id or msg['msg_from'] == chat_id:
+                    is_sender = (msg['msg_from'] == client.username)
+                    add_message_to_chat_list(msg['msg_from'], msg['msg'], msg['timestamp'], is_sender)
             chat_list.update()
             logging.info(f"REFRESH INBOX response: {inbox}")
 
@@ -142,6 +145,11 @@ def chat_room_page(page, chat_id):
 
         chat_list.controls.append(message_with_timestamp)
 
+    async def auto_refresh():
+        while True:
+            await asyncio.sleep(0.5)  # Tunggu 500ms
+            refresh_inbox()
+
     refresh_button = ft.ElevatedButton(text="Refresh", on_click=refresh_inbox)
     header = ft.Row([ft.Text(f"Chat Room with {chat_id}", size=24, weight=ft.FontWeight.BOLD), refresh_button])
 
@@ -158,6 +166,7 @@ def chat_room_page(page, chat_id):
     page.views.append(view)
     page.update()
 
+    asyncio.create_task(auto_refresh())  # Jalankan auto_refresh sebagai tugas asinkron
     refresh_inbox()
 
 def chat_room_group_page(page, group_id):
@@ -296,8 +305,8 @@ def main(page: ft.Page):
         )
     
     def chat_type_page():
-        user_list_button = ft.ElevatedButton(text="User List", on_click=lambda _: navigate_to('/user_list'))
-        group_list_button = ft.ElevatedButton(text="Group List", on_click=lambda _: navigate_to('/group_list'))
+        user_list_button = ft.ElevatedButton(text="Private Chat", on_click=lambda _: navigate_to('/user_list'))
+        group_list_button = ft.ElevatedButton(text="Group Chat", on_click=lambda _: navigate_to('/group_list'))
         create_group_button = ft.ElevatedButton(text="Create Group", on_click=lambda _: navigate_to('/group_create'))
         logout_button = ft.ElevatedButton(text="Logout", on_click=lambda _: logout())
         back_button = ft.TextButton(text="Back", on_click=lambda _: page.go('/login'))

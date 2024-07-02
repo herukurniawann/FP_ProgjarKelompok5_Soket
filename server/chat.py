@@ -126,11 +126,17 @@ class Chat:
     def get_inbox(self, username):
         incoming = self.users[username]['incoming']
         outgoing = self.users[username]['outgoing']
-        incoming_msgs = [msg for messages in incoming.values() for msg in messages]
-        outgoing_msgs = [msg for messages in outgoing.values() for msg in messages]
-        all_msgs = incoming_msgs + outgoing_msgs
+        all_msgs = []
+
+        for sender, messages in incoming.items():
+            all_msgs.extend(messages)
+        for receiver, messages in outgoing.items():
+            all_msgs.extend(messages)
+            
         all_msgs.sort(key=lambda x: x['timestamp'])
-        
+        logging.warning(f"Inbox for {username} - All Messages: {all_msgs}")
+        return {'status': 'OK', 'messages': all_msgs}
+    
         logging.warning(f"Inbox for {username} - All Messages: {all_msgs}")
         return {'status': 'OK', 'messages': all_msgs}
 
