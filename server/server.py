@@ -6,8 +6,25 @@ import logging
 from chat import Chat
 import os 
 import base64
+import http.server
+import socketserver
+from threading import Thread
 
 chatserver = Chat()
+
+PORT = 8000
+DIRECTORY = "server/file"
+
+class FileRequestHandler(http.server.SimpleHTTPRequestHandler):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, directory=DIRECTORY, **kwargs)
+
+def start_http_server():
+    os.makedirs(DIRECTORY, exist_ok=True)
+    handler = FileRequestHandler
+    httpd = socketserver.TCPServer(("", PORT), handler)
+    print(f"Serving files at http://localhost:{PORT}")
+    httpd.serve_forever()
 
 class ProcessTheClient(threading.Thread):
     def __init__(self, connection, address):
@@ -81,4 +98,5 @@ def main():
     svr.start()
 
 if __name__ == "__main__":
+    Thread(target=start_http_server, daemon=True).start()
     main()

@@ -5,6 +5,7 @@ import logging
 import asyncio
 import os 
 import base64
+import webbrowser
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -139,8 +140,15 @@ def chat_room_page(page, chat_id):
 
         if "Received file:" in message:
             file_name = message.split("Received file: ")[1]
+            file_url = f"http://localhost:8000/{file_name}"
             chat_bubble = ft.Container(
-                content=ft.Text(f"{sender} sent a file: {file_name}", color=text_color),
+                content=ft.Column(
+                    controls=[
+                        ft.Text(f"{sender} sent a file:"),
+                        ft.TextButton(text=file_name, on_click=lambda e: webbrowser.open(file_url)),
+                    ],
+                    spacing=5,
+                ),
                 bgcolor=bubble_color,
                 border_radius=10,
                 padding=10,
@@ -175,8 +183,8 @@ def chat_room_page(page, chat_id):
 
     async def auto_refresh():
         while True:
-            await asyncio.sleep(0.5)
-            # refresh_inbox()
+            await asyncio.sleep(0.5)  # Tunggu 500ms
+            refresh_inbox()
 
     refresh_button = ft.ElevatedButton(text="Refresh", on_click=refresh_inbox)
     header = ft.Row([ft.Text(f"Chat Room with {chat_id}", size=24, weight=ft.FontWeight.BOLD), refresh_button])
@@ -194,9 +202,10 @@ def chat_room_page(page, chat_id):
     page.views.append(view)
     page.update()
 
+    # Jalankan auto_refresh sebagai tugas asinkron
     try:
         asyncio.get_running_loop().create_task(auto_refresh())
-    except RuntimeError:  
+    except RuntimeError:  # Jika tidak ada event loop yang berjalan, buat satu
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         loop.create_task(auto_refresh())
