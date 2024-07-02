@@ -183,7 +183,7 @@ def chat_room_page(page, chat_id):
 
     async def auto_refresh():
         while True:
-            await asyncio.sleep(0.5)  # Tunggu 500ms
+            await asyncio.sleep(0.5)
             refresh_inbox()
 
     refresh_button = ft.ElevatedButton(text="Refresh", on_click=refresh_inbox)
