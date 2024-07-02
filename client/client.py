@@ -1,6 +1,8 @@
 import socket
 import json
 import logging
+import base64
+import os 
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -18,7 +20,7 @@ class ChatClient:
             logging.info(f"Sent: {string.strip()}")
             receivemsg = ""
             while True:
-                data = self.sock.recv(64)
+                data = self.sock.recv(2048)
                 if data:
                     receivemsg = "{}{}".format(receivemsg, data.decode())
                     if receivemsg[-4:] == '\r\n\r\n':
@@ -45,6 +47,19 @@ class ChatClient:
         if not self.tokenid:
             return "Error, not authorized"
         string = f"send {self.tokenid} {usernameto} {message} \r\n"
+        return self.sendstring(string)
+
+    def send_file(self, usernameto, file_path):
+        if not self.tokenid:
+            return "Error, not authorized"
+        
+        with open(file_path, "rb") as f:
+            file_content = f.read()
+        
+        file_name = os.path.basename(file_path)
+        file_content_encoded = base64.b64encode(file_content).decode()
+        string = f"sendfile {self.tokenid} {usernameto} {file_name} \r\n\r\n{file_content_encoded}\r\n\r\n"
+        
         return self.sendstring(string)
 
     def get_inbox(self):

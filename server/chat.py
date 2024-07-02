@@ -2,6 +2,8 @@ import json
 import uuid
 import logging
 from datetime import datetime
+import os 
+import base64
 
 class Chat:
     def __init__(self):
@@ -122,6 +124,33 @@ class Chat:
         logging.warning(f"Current incoming for {username_dest}: {self.users[username_dest]['incoming']}")
         logging.warning(f"Current outgoing for {username_from}: {self.users[username_from]['outgoing']}")
         return {'status': 'OK', 'message': 'Message Sent'}
+
+    def send_file(self, username_from, username_dest, file_name, file_content):
+        if username_from not in self.users or username_dest not in self.users:
+            return {'status': 'ERROR', 'message': 'User Tidak Ditemukan'}
+        
+        file_dir = os.path.join(os.path.dirname(__file__), 'file')
+        if not os.path.exists(file_dir):
+            os.makedirs(file_dir)
+        
+        file_path = os.path.join(file_dir, file_name)
+        with open(file_path, "wb") as f:
+            f.write(file_content)
+        
+        timestamp = datetime.now().isoformat()
+        msg = {'msg_from': username_from, 'msg_to': username_dest, 'file': file_name, 'timestamp': timestamp}
+        
+        if username_dest not in self.users[username_from]['outgoing']:
+            self.users[username_from]['outgoing'][username_dest] = []
+        if username_from not in self.users[username_dest]['incoming']:
+            self.users[username_dest]['incoming'][username_from] = []
+        self.users[username_dest]['incoming'][username_from].append(msg)
+        self.users[username_from]['outgoing'][username_dest].append(msg)
+        
+        logging.warning(f"Sent file from {username_from} to {username_dest}: {msg}")
+        logging.warning(f"Current incoming for {username_dest}: {self.users[username_dest]['incoming']}")
+        logging.warning(f"Current outgoing for {username_from}: {self.users[username_from]['outgoing']}")
+        return {'status': 'OK', 'message': 'File Sent'}
 
     def get_inbox(self, username):
         incoming = self.users[username]['incoming']

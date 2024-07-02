@@ -3,6 +3,8 @@ from client import ChatClient
 from datetime import datetime
 import logging
 import asyncio
+import os 
+import base64
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -85,7 +87,11 @@ def chat_room_page(page, chat_id):
     chat_list = ft.ListView(expand=1, spacing=10, padding=20, auto_scroll=True)
     chat_message = ft.TextField(label="Message", expand=1, on_submit=lambda e: send_message())
     send_button = ft.IconButton(icon=ft.icons.SEND_ROUNDED, on_click=lambda e: send_message())
+    file_picker = ft.FilePicker(on_result=lambda e: send_file(e))
+    file_button = ft.IconButton(icon=ft.icons.ATTACH_FILE, on_click=lambda e: file_picker.pick_files())
     back_button = ft.TextButton(text="Back", on_click=lambda _: page.go('/user_list'))
+
+    page.overlay.append(file_picker)  # Tambahkan file picker ke overlay page
 
     def send_message():
         if chat_message.value:
@@ -96,6 +102,15 @@ def chat_room_page(page, chat_id):
             chat_list.update()
             logging.info(f"SEND MESSAGE response: {response}")
 
+    def send_file(file_event):
+        if file_event.files:
+            file_path = file_event.files[0].path
+            response = client.send_file(chat_id, file_path)
+            file_name = file_event.files[0].name
+            add_message_to_chat_list("You", f"Sent file: {file_name}", datetime.now().isoformat(), is_sender=True)
+            chat_list.update()
+            logging.info(f"SEND FILE response: {response}")
+
     def refresh_inbox(e=None):
         inbox = client.get_inbox()
         if inbox['status'] == 'OK':
@@ -104,7 +119,10 @@ def chat_room_page(page, chat_id):
             for msg in messages:
                 if msg['msg_to'] == chat_id or msg['msg_from'] == chat_id:
                     is_sender = (msg['msg_from'] == client.username)
-                    add_message_to_chat_list(msg['msg_from'], msg['msg'], msg['timestamp'], is_sender)
+                    if 'file' in msg:
+                        add_message_to_chat_list(msg['msg_from'], f"Received file: {msg['file']}", msg['timestamp'], is_sender)
+                    else:
+                        add_message_to_chat_list(msg['msg_from'], msg['msg'], msg['timestamp'], is_sender)
             chat_list.update()
             logging.info(f"REFRESH INBOX response: {inbox}")
 
@@ -119,13 +137,23 @@ def chat_room_page(page, chat_id):
         text_color = ft.colors.WHITE if is_sender else ft.colors.WHITE
         alignment = ft.alignment.center_right if is_sender else ft.alignment.center_left
 
-        chat_bubble = ft.Container(
-            content=ft.Text(message, color=text_color),
-            bgcolor=bubble_color,
-            border_radius=10,
-            padding=10,
-            alignment=alignment
-        )
+        if "Received file:" in message:
+            file_name = message.split("Received file: ")[1]
+            chat_bubble = ft.Container(
+                content=ft.Text(f"{sender} sent a file: {file_name}", color=text_color),
+                bgcolor=bubble_color,
+                border_radius=10,
+                padding=10,
+                alignment=alignment
+            )
+        else:
+            chat_bubble = ft.Container(
+                content=ft.Text(message, color=text_color),
+                bgcolor=bubble_color,
+                border_radius=10,
+                padding=10,
+                alignment=alignment
+            )
 
         timestamp_text = ft.Text(formatted_time, size=10, color=ft.colors.GREY, text_align="right" if is_sender else "left")
 
@@ -147,8 +175,8 @@ def chat_room_page(page, chat_id):
 
     async def auto_refresh():
         while True:
-            await asyncio.sleep(0.5)  # Tunggu 500ms
-            refresh_inbox()
+            await asyncio.sleep(0.5)
+            # refresh_inbox()
 
     refresh_button = ft.ElevatedButton(text="Refresh", on_click=refresh_inbox)
     header = ft.Row([ft.Text(f"Chat Room with {chat_id}", size=24, weight=ft.FontWeight.BOLD), refresh_button])
@@ -158,7 +186,7 @@ def chat_room_page(page, chat_id):
         controls=[
             header,
             chat_list,
-            ft.Row(controls=[chat_message, send_button]),
+            ft.Row(controls=[chat_message, send_button, file_button]),
             back_button
         ]
     )
@@ -166,7 +194,14 @@ def chat_room_page(page, chat_id):
     page.views.append(view)
     page.update()
 
-    asyncio.create_task(auto_refresh())  # Jalankan auto_refresh sebagai tugas asinkron
+    try:
+        asyncio.get_running_loop().create_task(auto_refresh())
+    except RuntimeError:  
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.create_task(auto_refresh())
+        loop.run_forever()
+
     refresh_inbox()
 
 def chat_room_group_page(page, group_id):

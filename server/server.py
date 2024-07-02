@@ -4,6 +4,8 @@ import threading
 import json
 import logging
 from chat import Chat
+import os 
+import base64
 
 chatserver = Chat()
 
@@ -20,7 +22,15 @@ class ProcessTheClient(threading.Thread):
             if data:
                 d = data.decode()
                 rcv = rcv + d
-                if rcv[-2:] == '\r\n':
+                if rcv.startswith("sendfile"):
+                    logging.warning("data dari client (file): {}".format(rcv))
+                    hasil = self.handle_sendfile(rcv)
+                    logging.warning("balas ke client (file): {}".format(hasil))
+                    hasil = json.dumps(hasil)
+                    hasil = hasil + "\r\n\r\n"
+                    self.connection.sendall(hasil.encode())
+                    rcv = ""
+                elif rcv[-2:] == '\r\n':
                     logging.warning("data dari client: {}".format(rcv))
                     hasil = chatserver.proses(rcv)
                     logging.warning("balas ke client: {}".format(hasil))
@@ -31,6 +41,20 @@ class ProcessTheClient(threading.Thread):
             else:
                 break
         self.connection.close()
+
+    def handle_sendfile(self, data):
+        try:
+            parts = data.split("\r\n\r\n")
+            metadata = parts[0].split()
+            file_content = base64.b64decode(parts[1])
+            sessionid, usernameto, file_name = metadata[1], metadata[2], metadata[3]
+            if sessionid not in chatserver.sessions:
+                return {'status': 'ERROR', 'message': 'Invalid session'}
+            usernamefrom = chatserver.sessions[sessionid]['username']
+            return chatserver.send_file(usernamefrom, usernameto, file_name, file_content)
+        except Exception as e:
+            logging.error(f"Error handling file upload: {str(e)}")
+            return {'status': 'ERROR', 'message': 'File upload failed'}
 
 class Server(threading.Thread):
     def __init__(self):
