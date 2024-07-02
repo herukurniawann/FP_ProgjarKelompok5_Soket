@@ -70,6 +70,18 @@ class ChatClient:
             return "Error, not authorized"
         string = f"sendgroup {self.tokenid} {group_name} {message} \r\n"
         return self.sendstring(string)
+    
+    def send_realm_message(self, username_to, message) :
+        if not self.tokenid:
+            return "Error, not authorized"
+        string = f"sendrealm {username_to} {message} \r\n"
+        return self.sendstring(string)
+    
+    def send_group_realm_message(self, group_name, message):
+        if not self.tokenid:
+            return "Error, not authorized"
+        string = f"sendgrouprealm {group_name} {message}"
+        return self.sendstring(string)
 
     def logout(self):
         self.tokenid = ""
