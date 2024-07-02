@@ -2,6 +2,10 @@ import flet as ft
 from client import ChatClient
 from datetime import datetime
 import logging
+import asyncio
+import os 
+import base64
+import webbrowser
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -21,13 +25,14 @@ class UserList(ft.UserControl):
         if response['status'] == 'OK':
             self.user_list.controls.clear()
             for user in response['users']:
-                self.user_list.controls.append(
-                    ft.ListTile(
-                        leading=ft.Icon(ft.icons.PERSON),
-                        title=ft.Text(f"{user}"),
-                        on_click=lambda e, user=user: self.navigate_to_chat_room(user),
+                if user != client.username:
+                    self.user_list.controls.append(
+                        ft.ListTile(
+                            leading=ft.Icon(ft.icons.PERSON),
+                            title=ft.Text(f"{user}"),
+                            on_click=lambda e, user=user: self.navigate_to_chat_room(user),
+                        )
                     )
-                )
             self.user_list.update()
 
     def navigate_to_chat_room(self, chat_id):
@@ -37,7 +42,7 @@ class UserList(ft.UserControl):
         return ft.View(
             route="/user_list",
             controls=[
-                ft.Row([ft.Text("User List", size=24, weight=ft.FontWeight.BOLD)]),
+                ft.Row([ft.Text("Private Chat", size=24, weight=ft.FontWeight.BOLD)]),
                 self.user_list,
                 ft.TextButton(text="Back", on_click=lambda _: self.page.go('/chat_type'))
             ]
@@ -73,7 +78,7 @@ class GroupList(ft.UserControl):
         return ft.View(
             route="/group_list",
             controls=[
-                ft.Row([ft.Text("Group List", size=24, weight=ft.FontWeight.BOLD)]),
+                ft.Row([ft.Text("Group Chat", size=24, weight=ft.FontWeight.BOLD)]),
                 self.group_list,
                 ft.TextButton(text="Back", on_click=lambda _: self.page.go('/chat_type'))
             ]
@@ -83,7 +88,11 @@ def chat_room_page(page, chat_id):
     chat_list = ft.ListView(expand=1, spacing=10, padding=20, auto_scroll=True)
     chat_message = ft.TextField(label="Message", expand=1, on_submit=lambda e: send_message())
     send_button = ft.IconButton(icon=ft.icons.SEND_ROUNDED, on_click=lambda e: send_message())
+    file_picker = ft.FilePicker(on_result=lambda e: send_file(e))
+    file_button = ft.IconButton(icon=ft.icons.ATTACH_FILE, on_click=lambda e: file_picker.pick_files())
     back_button = ft.TextButton(text="Back", on_click=lambda _: page.go('/user_list'))
+
+    page.overlay.append(file_picker)  # Tambahkan file picker ke overlay page
 
     def send_message():
         if chat_message.value:
@@ -94,14 +103,27 @@ def chat_room_page(page, chat_id):
             chat_list.update()
             logging.info(f"SEND MESSAGE response: {response}")
 
+    def send_file(file_event):
+        if file_event.files:
+            file_path = file_event.files[0].path
+            response = client.send_file(chat_id, file_path)
+            file_name = file_event.files[0].name
+            add_message_to_chat_list("You", f"Sent file: {file_name}", datetime.now().isoformat(), is_sender=True)
+            chat_list.update()
+            logging.info(f"SEND FILE response: {response}")
+
     def refresh_inbox(e=None):
         inbox = client.get_inbox()
         if inbox['status'] == 'OK':
             messages = inbox['messages']
             chat_list.controls.clear()
             for msg in messages:
-                is_sender = (msg['msg_from'] != chat_id)
-                add_message_to_chat_list(msg['msg_from'], msg['msg'], msg['timestamp'], is_sender)
+                if msg['msg_to'] == chat_id or msg['msg_from'] == chat_id:
+                    is_sender = (msg['msg_from'] == client.username)
+                    if 'file' in msg:
+                        add_message_to_chat_list(msg['msg_from'], f"Received file: {msg['file']}", msg['timestamp'], is_sender)
+                    else:
+                        add_message_to_chat_list(msg['msg_from'], msg['msg'], msg['timestamp'], is_sender)
             chat_list.update()
             logging.info(f"REFRESH INBOX response: {inbox}")
 
@@ -116,13 +138,30 @@ def chat_room_page(page, chat_id):
         text_color = ft.colors.WHITE if is_sender else ft.colors.WHITE
         alignment = ft.alignment.center_right if is_sender else ft.alignment.center_left
 
-        chat_bubble = ft.Container(
-            content=ft.Text(message, color=text_color),
-            bgcolor=bubble_color,
-            border_radius=10,
-            padding=10,
-            alignment=alignment
-        )
+        if "Received file:" in message:
+            file_name = message.split("Received file: ")[1]
+            file_url = f"http://localhost:8000/{file_name}"
+            chat_bubble = ft.Container(
+                content=ft.Column(
+                    controls=[
+                        ft.Text(f"{sender} sent a file:"),
+                        ft.TextButton(text=file_name, on_click=lambda e: webbrowser.open(file_url)),
+                    ],
+                    spacing=5,
+                ),
+                bgcolor=bubble_color,
+                border_radius=10,
+                padding=10,
+                alignment=alignment
+            )
+        else:
+            chat_bubble = ft.Container(
+                content=ft.Text(message, color=text_color),
+                bgcolor=bubble_color,
+                border_radius=10,
+                padding=10,
+                alignment=alignment
+            )
 
         timestamp_text = ft.Text(formatted_time, size=10, color=ft.colors.GREY, text_align="right" if is_sender else "left")
 
@@ -142,6 +181,11 @@ def chat_room_page(page, chat_id):
 
         chat_list.controls.append(message_with_timestamp)
 
+    async def auto_refresh():
+        while True:
+            await asyncio.sleep(0.5)
+            refresh_inbox()
+
     refresh_button = ft.ElevatedButton(text="Refresh", on_click=refresh_inbox)
     header = ft.Row([ft.Text(f"Chat Room with {chat_id}", size=24, weight=ft.FontWeight.BOLD), refresh_button])
 
@@ -150,13 +194,22 @@ def chat_room_page(page, chat_id):
         controls=[
             header,
             chat_list,
-            ft.Row(controls=[chat_message, send_button]),
+            ft.Row(controls=[chat_message, send_button, file_button]),
             back_button
         ]
     )
 
     page.views.append(view)
     page.update()
+
+    # Jalankan auto_refresh sebagai tugas asinkron
+    try:
+        asyncio.get_running_loop().create_task(auto_refresh())
+    except RuntimeError:  # Jika tidak ada event loop yang berjalan, buat satu
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.create_task(auto_refresh())
+        loop.run_forever()
 
     refresh_inbox()
 
@@ -296,8 +349,8 @@ def main(page: ft.Page):
         )
     
     def chat_type_page():
-        user_list_button = ft.ElevatedButton(text="User List", on_click=lambda _: navigate_to('/user_list'))
-        group_list_button = ft.ElevatedButton(text="Group List", on_click=lambda _: navigate_to('/group_list'))
+        user_list_button = ft.ElevatedButton(text="Private Chat", on_click=lambda _: navigate_to('/user_list'))
+        group_list_button = ft.ElevatedButton(text="Group Chat", on_click=lambda _: navigate_to('/group_list'))
         create_group_button = ft.ElevatedButton(text="Create Group", on_click=lambda _: navigate_to('/group_create'))
         logout_button = ft.ElevatedButton(text="Logout", on_click=lambda _: logout())
         back_button = ft.TextButton(text="Back", on_click=lambda _: page.go('/login'))
