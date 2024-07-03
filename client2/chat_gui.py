@@ -144,8 +144,8 @@ def chat_room_page(page, chat_id):
         else:
             formatted_time = timestamp_dt.strftime('%Y-%m-%d %H:%M:%S')
 
-        bubble_color = ft.colors.GREEN if is_sender else ft.colors.BLUE
-        text_color = ft.colors.WHITE if is_sender else ft.colors.WHITE
+        bubble_color = ft.colors.GREEN if is_sender else ft.colors.GREY
+        text_color = ft.colors.WHITE if is_sender else ft.colors.BLACK
         alignment = ft.alignment.center_right if is_sender else ft.alignment.center_left
 
         if "Received file:" in message:
@@ -281,8 +281,8 @@ def chat_room_group_page(page, group_id):
         else:
             formatted_time = timestamp_dt.strftime('%Y-%m-%d %H:%M:%S')
 
-        bubble_color = ft.colors.GREEN if is_sender else ft.colors.BLUE
-        text_color = ft.colors.WHITE if is_sender else ft.colors.WHITE
+        bubble_color = ft.colors.GREEN if is_sender else ft.colors.GREY
+        text_color = ft.colors.WHITE if is_sender else ft.colors.BLACK
         alignment = ft.alignment.center_right if is_sender else ft.alignment.center_left
 
         if "Received file:" in message:

@@ -9,12 +9,12 @@ class Chat:
     def __init__(self):
         self.sessions = {}
         self.users = {
-            'hisan': {'nama': 'Hisan', 'password': 'surabaya', 'incoming': {}, 'outgoing': {}},
-            'heru': {'nama': 'Heru', 'password': 'surabaya', 'incoming': {}, 'outgoing': {}},
-            'daffa': {'nama': 'Daffa', 'password': 'surabaya', 'incoming': {}, 'outgoing': {}},
-            'baihaqi': {'nama': 'Baihaqi', 'password': 'surabaya', 'incoming': {}, 'outgoing': {}},
-            'arfi': {'nama': 'Arfi', 'password': 'surabaya', 'incoming': {}, 'outgoing': {}},
-            'ulya': {'nama': 'Ulya', 'password': 'surabaya', 'incoming': {}, 'outgoing': {}},
+            'hisan': {'nama': 'Hisan', 'password': 'progjar', 'incoming': {}, 'outgoing': {}},
+            'heru': {'nama': 'Heru', 'password': 'progjar', 'incoming': {}, 'outgoing': {}},
+            'daffa': {'nama': 'Daffa', 'password': 'progjar', 'incoming': {}, 'outgoing': {}},
+            'baihaqi': {'nama': 'Baihaqi', 'password': 'progjar', 'incoming': {}, 'outgoing': {}},
+            'arfi': {'nama': 'Arfi', 'password': 'progjar', 'incoming': {}, 'outgoing': {}},
+            'ulya': {'nama': 'Ulya', 'password': 'progjar', 'incoming': {}, 'outgoing': {}},
         }
         self.groups = {
             'group1': ['hisan', 'heru', 'daffa'],
