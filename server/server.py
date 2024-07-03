@@ -47,6 +47,14 @@ class ProcessTheClient(threading.Thread):
                     hasil = hasil + "\r\n\r\n"
                     self.connection.sendall(hasil.encode())
                     rcv = ""
+                elif rcv.startswith("sendgroupfile"):
+                    logging.warning("data dari client (group file): {}".format(rcv))
+                    hasil = self.handle_sendgroupfile(rcv)
+                    logging.warning("balas ke client (group file): {}".format(hasil))
+                    hasil = json.dumps(hasil)
+                    hasil = hasil + "\r\n\r\n"
+                    self.connection.sendall(hasil.encode())
+                    rcv = ""
                 elif rcv[-2:] == '\r\n':
                     logging.warning("data dari client: {}".format(rcv))
                     hasil = chatserver.proses(rcv)
@@ -72,6 +80,20 @@ class ProcessTheClient(threading.Thread):
         except Exception as e:
             logging.error(f"Error handling file upload: {str(e)}")
             return {'status': 'ERROR', 'message': 'File upload failed'}
+
+    def handle_sendgroupfile(self, data):
+        try:
+            parts = data.split("\r\n\r\n")
+            metadata = parts[0].split()
+            file_content = base64.b64decode(parts[1])
+            sessionid, group_name, file_name = metadata[1], metadata[2], metadata[3]
+            if sessionid not in chatserver.sessions:
+                return {'status': 'ERROR', 'message': 'Invalid session'}
+            usernamefrom = chatserver.sessions[sessionid]['username']
+            return chatserver.send_group_file(usernamefrom, group_name, file_name, file_content)
+        except Exception as e:
+            logging.error(f"Error handling group file upload: {str(e)}")
+            return {'status': 'ERROR', 'message': 'Group file upload failed'}
 
 class Server(threading.Thread):
     def __init__(self):

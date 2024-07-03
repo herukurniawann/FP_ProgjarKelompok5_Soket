@@ -68,6 +68,12 @@ class ChatClient:
         string = f"inbox {self.tokenid} \r\n"
         return self.sendstring(string)
 
+    def get_group_inbox(self, group_name):
+        if not self.tokenid:
+            return "Error, not authorized"
+        string = f"groupinbox {self.tokenid} {group_name} \r\n"
+        return self.sendstring(string)
+
     def list_users(self):
         string = "listusers \r\n"
         return self.sendstring(string)
@@ -86,6 +92,19 @@ class ChatClient:
         if not self.tokenid:
             return "Error, not authorized"
         string = f"sendgroup {self.tokenid} {group_name} {message} \r\n"
+        return self.sendstring(string)
+
+    def send_group_file(self, group_name, file_path):
+        if not self.tokenid:
+            return "Error, not authorized"
+        
+        with open(file_path, "rb") as f:
+            file_content = f.read()
+        
+        file_name = os.path.basename(file_path)
+        file_content_encoded = base64.b64encode(file_content).decode()
+        string = f"sendgroupfile {self.tokenid} {group_name} {file_name} \r\n\r\n{file_content_encoded}\r\n\r\n"
+        
         return self.sendstring(string)
     
     def send_realm_message(self, username_to, message) :

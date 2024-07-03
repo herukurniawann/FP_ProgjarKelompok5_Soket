@@ -20,6 +20,40 @@ class Chat:
             'group1': ['hisan', 'heru', 'daffa'],
             'group2': ['baihaqi', 'arfi', 'ulya'],
         }
+        self.group_messages = {group: [] for group in self.groups}
+
+    def get_group_inbox(self, group_name):
+        if group_name not in self.groups:
+            return {'status': 'ERROR', 'message': 'Group Tidak Ditemukan'}
+        return {'status': 'OK', 'messages': self.group_messages[group_name]}
+
+    def send_group_message(self, username_from, group_name, message):
+        if group_name not in self.groups:
+            return {'status': 'ERROR', 'message': 'Group Tidak Ditemukan'}
+        timestamp = datetime.now().isoformat()
+        msg = {'msg_from': username_from, 'msg': message, 'timestamp': timestamp}
+        self.group_messages[group_name].append(msg)
+        logging.warning(f"Group message sent from {username_from} to {group_name}: {msg}")
+        return {'status': 'OK', 'message': 'Message Sent to Group'}
+        
+    def send_group_file(self, username_from, group_name, file_name, file_content):
+        if group_name not in self.groups:
+            return {'status': 'ERROR', 'message': 'Group Tidak Ditemukan'}
+        
+        file_dir = os.path.join(os.path.dirname(__file__), 'file')
+        if not os.path.exists(file_dir):
+            os.makedirs(file_dir)
+        
+        file_path = os.path.join(file_dir, file_name)
+        with open(file_path, "wb") as f:
+            f.write(file_content)
+        
+        timestamp = datetime.now().isoformat()
+        msg = {'msg_from': username_from, 'file': file_name, 'timestamp': timestamp}
+        
+        self.group_messages[group_name].append(msg)
+        logging.warning(f"Group file sent from {username_from} to {group_name}: {msg}")
+        return {'status': 'OK', 'message': 'File Sent to Group'}
 
     def proses(self, data):
         j = data.split(" ")
@@ -67,6 +101,12 @@ class Chat:
                 message = " ".join(j[3:])
                 usernamefrom = self.sessions[sessionid]['username']
                 return self.send_group_message(usernamefrom, group_name, message)
+            elif command == 'groupinbox':
+                sessionid = j[1].strip()
+                if sessionid not in self.sessions:
+                    return {'status': 'ERROR', 'message': 'Invalid session'}
+                group_name = j[2].strip()
+                return self.get_group_inbox(group_name)
             else:
                 return {'status': 'ERROR', 'message': '**Protocol Tidak Benar'}
         except KeyError as e:
@@ -168,11 +208,3 @@ class Chat:
     
         logging.warning(f"Inbox for {username} - All Messages: {all_msgs}")
         return {'status': 'OK', 'messages': all_msgs}
-
-    def send_group_message(self, username_from, group_name, message):
-        if group_name not in self.groups:
-            return {'status': 'ERROR', 'message': 'Group Tidak Ditemukan'}
-        for member in self.groups[group_name]:
-            if member != username_from:
-                self.send_message(username_from, member, message)
-        return {'status': 'OK', 'message': 'Message Sent to Group'}

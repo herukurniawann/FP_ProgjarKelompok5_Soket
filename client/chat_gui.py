@@ -92,7 +92,7 @@ def chat_room_page(page, chat_id):
     file_button = ft.IconButton(icon=ft.icons.ATTACH_FILE, on_click=lambda e: file_picker.pick_files())
     back_button = ft.TextButton(text="Back", on_click=lambda _: page.go('/user_list'))
 
-    page.overlay.append(file_picker)  # Tambahkan file picker ke overlay page
+    page.overlay.append(file_picker)
 
     def send_message():
         if chat_message.value:
@@ -202,10 +202,9 @@ def chat_room_page(page, chat_id):
     page.views.append(view)
     page.update()
 
-    # Jalankan auto_refresh sebagai tugas asinkron
     try:
         asyncio.get_running_loop().create_task(auto_refresh())
-    except RuntimeError:  # Jika tidak ada event loop yang berjalan, buat satu
+    except RuntimeError:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         loop.create_task(auto_refresh())
@@ -217,30 +216,102 @@ def chat_room_group_page(page, group_id):
     chat_list = ft.ListView(expand=1, spacing=10, padding=20, auto_scroll=True)
     chat_message = ft.TextField(label="Message", expand=1, on_submit=lambda e: send_group_message())
     send_button = ft.IconButton(icon=ft.icons.SEND_ROUNDED, on_click=lambda e: send_group_message())
+    file_picker = ft.FilePicker(on_result=lambda e: send_group_file(e))
+    file_button = ft.IconButton(icon=ft.icons.ATTACH_FILE, on_click=lambda e: file_picker.pick_files())
     back_button = ft.TextButton(text="Back", on_click=lambda _: page.go('/group_list'))
+
+    page.overlay.append(file_picker)
 
     def send_group_message():
         if chat_message.value:
             response = client.send_group_message(group_id, chat_message.value)
-            chat_list.controls.append(ft.Text(f"You: {chat_message.value}"))
+            add_message_to_chat_list("You", chat_message.value, datetime.now().isoformat(), is_sender=True)
             chat_message.value = ""
             chat_message.update()
             chat_list.update()
             logging.info(f"SEND GROUP MESSAGE response: {response}")
 
+    def send_group_file(file_event):
+        if file_event.files:
+            file_path = file_event.files[0].path
+            response = client.send_group_file(group_id, file_path)
+            file_name = file_event.files[0].name
+            add_message_to_chat_list("You", f"Sent file: {file_name}", datetime.now().isoformat(), is_sender=True)
+            chat_list.update()
+            logging.info(f"SEND FILE response: {response}")
+
     def refresh_inbox(e=None):
-        inbox = client.get_inbox()
-        if inbox['status'] == 'OK':
-            messages = []
-            for msg_list in inbox['messages'].values():
-                for msg in msg_list:
-                    if msg['msg_to'] == group_id:
-                        messages.append(msg)
+        response = client.get_group_inbox(group_id)
+        if response['status'] == 'OK':
+            messages = response['messages']
             chat_list.controls.clear()
             for msg in messages:
-                chat_list.controls.append(ft.Text(f"{msg['msg_from']}: {msg['msg']}"))
+                is_sender = (msg['msg_from'] == client.username)
+                if 'file' in msg:
+                    add_message_to_chat_list(msg['msg_from'], f"Received file: {msg['file']}", msg['timestamp'], is_sender)
+                else:
+                    add_message_to_chat_list(msg['msg_from'], msg['msg'], msg['timestamp'], is_sender)
             chat_list.update()
-            logging.info(f"REFRESH GROUP INBOX response: {inbox}")
+            logging.info(f"REFRESH GROUP INBOX response: {response}")
+
+    def add_message_to_chat_list(sender, message, timestamp, is_sender):
+        timestamp_dt = datetime.fromisoformat(timestamp)
+        if timestamp_dt.date() == datetime.today().date():
+            formatted_time = timestamp_dt.strftime('%H:%M:%S')
+        else:
+            formatted_time = timestamp_dt.strftime('%Y-%m-%d %H:%M:%S')
+
+        bubble_color = ft.colors.GREEN if is_sender else ft.colors.BLUE
+        text_color = ft.colors.WHITE if is_sender else ft.colors.WHITE
+        alignment = ft.alignment.center_right if is_sender else ft.alignment.center_left
+
+        if "Received file:" in message:
+            file_name = message.split("Received file: ")[1]
+            file_url = f"http://localhost:8000/{file_name}"
+            chat_bubble = ft.Container(
+                content=ft.Column(
+                    controls=[
+                        ft.Text(f"{sender} sent a file:"),
+                        ft.TextButton(text=file_name, on_click=lambda e: webbrowser.open(file_url)),
+                    ],
+                    spacing=5,
+                ),
+                bgcolor=bubble_color,
+                border_radius=10,
+                padding=10,
+                alignment=alignment
+            )
+        else:
+            chat_bubble = ft.Container(
+                content=ft.Text(message, color=text_color),
+                bgcolor=bubble_color,
+                border_radius=10,
+                padding=10,
+                alignment=alignment
+            )
+
+        timestamp_text = ft.Text(formatted_time, size=10, color=ft.colors.GREY, text_align="right" if is_sender else "left")
+
+        message_with_timestamp = ft.Container(
+            content=ft.Column(
+                controls=[
+                    chat_bubble,
+                    timestamp_text
+                ],
+                spacing=2,
+                horizontal_alignment=ft.CrossAxisAlignment.END if is_sender else ft.CrossAxisAlignment.START
+            ),
+            padding=10,
+            margin=10,
+            alignment=alignment
+        )
+
+        chat_list.controls.append(message_with_timestamp)
+
+    async def auto_refresh():
+        while True:
+            await asyncio.sleep(0.5)
+            refresh_inbox()
 
     refresh_button = ft.ElevatedButton(text="Refresh", on_click=refresh_inbox)
     header = ft.Row([ft.Text(f"Group Chat Room {group_id}", size=24, weight=ft.FontWeight.BOLD), refresh_button])
@@ -250,13 +321,23 @@ def chat_room_group_page(page, group_id):
         controls=[
             header,
             chat_list,
-            ft.Row(controls=[chat_message, send_button]),
+            ft.Row(controls=[chat_message, send_button, file_button]),
             back_button
         ]
     )
 
     page.views.append(view)
     page.update()
+
+    try:
+        asyncio.get_running_loop().create_task(auto_refresh())
+    except RuntimeError:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        loop.create_task(auto_refresh())
+        loop.run_forever()
+
+    refresh_inbox()
 
 def main(page: ft.Page):
     page.title = "Chat Application"
