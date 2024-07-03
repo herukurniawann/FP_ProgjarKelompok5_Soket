@@ -9,7 +9,7 @@ import webbrowser
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-client = ChatClient("127.0.0.1", 8889)
+client = ChatClient("127.0.0.1", 8888)
 
 class UserList(ft.UserControl):
     def __init__(self, page):
@@ -88,6 +88,7 @@ def chat_room_page(page, chat_id):
     chat_list = ft.ListView(expand=1, spacing=10, padding=20, auto_scroll=True)
     chat_message = ft.TextField(label="Message", expand=1, on_submit=lambda e: send_message())
     send_button = ft.IconButton(icon=ft.icons.SEND_ROUNDED, on_click=lambda e: send_message())
+    send_realm_button = ft.IconButton(icon=ft.icons.SEND_OUTLINED, on_click=lambda e: send_realm_message())
     file_picker = ft.FilePicker(on_result=lambda e: send_file(e))
     file_button = ft.IconButton(icon=ft.icons.ATTACH_FILE, on_click=lambda e: file_picker.pick_files())
     back_button = ft.TextButton(text="Back", on_click=lambda _: page.go('/user_list'))
@@ -102,6 +103,15 @@ def chat_room_page(page, chat_id):
             chat_message.update()
             chat_list.update()
             logging.info(f"SEND MESSAGE response: {response}")
+    
+    def send_realm_message():
+        if chat_message.value:
+            response = client.send_realm_message(chat_id, chat_message.value)
+            add_message_to_chat_list("You", chat_message.value, datetime.now().isoformat(), is_sender=True)
+            chat_message.value = ""
+            chat_message.update()
+            chat_list.update()
+            logging.info(f"SEND REALM MESSAGE response: {response}")
 
     def send_file(file_event):
         if file_event.files:
@@ -194,7 +204,7 @@ def chat_room_page(page, chat_id):
         controls=[
             header,
             chat_list,
-            ft.Row(controls=[chat_message, send_button, file_button]),
+            ft.Row(controls=[chat_message, send_button, send_realm_button, file_button]),
             back_button
         ]
     )
@@ -216,6 +226,7 @@ def chat_room_group_page(page, group_id):
     chat_list = ft.ListView(expand=1, spacing=10, padding=20, auto_scroll=True)
     chat_message = ft.TextField(label="Message", expand=1, on_submit=lambda e: send_group_message())
     send_button = ft.IconButton(icon=ft.icons.SEND_ROUNDED, on_click=lambda e: send_group_message())
+    send_realm_button = ft.IconButton(icon=ft.icons.SEND_OUTLINED, on_click=lambda e: send_realm_group_message())
     file_picker = ft.FilePicker(on_result=lambda e: send_group_file(e))
     file_button = ft.IconButton(icon=ft.icons.ATTACH_FILE, on_click=lambda e: file_picker.pick_files())
     back_button = ft.TextButton(text="Back", on_click=lambda _: page.go('/group_list'))
@@ -225,6 +236,15 @@ def chat_room_group_page(page, group_id):
     def send_group_message():
         if chat_message.value:
             response = client.send_group_message(group_id, chat_message.value)
+            add_message_to_chat_list("You", chat_message.value, datetime.now().isoformat(), is_sender=True)
+            chat_message.value = ""
+            chat_message.update()
+            chat_list.update()
+            logging.info(f"SEND GROUP MESSAGE response: {response}")
+
+    def send_realm_group_message():
+        if chat_message.value:
+            response = client.send_group_realm_message(group_id, chat_message.value)
             add_message_to_chat_list("You", chat_message.value, datetime.now().isoformat(), is_sender=True)
             chat_message.value = ""
             chat_message.update()
@@ -321,7 +341,7 @@ def chat_room_group_page(page, group_id):
         controls=[
             header,
             chat_list,
-            ft.Row(controls=[chat_message, send_button, file_button]),
+            ft.Row(controls=[chat_message, send_button, send_realm_button, file_button]),
             back_button
         ]
     )

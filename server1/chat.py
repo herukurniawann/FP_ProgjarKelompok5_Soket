@@ -21,6 +21,11 @@ class Chat:
             'group2': ['baihaqi', 'arfi', 'ulya'],
         }
         self.group_messages = {group: [] for group in self.groups}
+    
+    def get_username_from_session(self, sessionid):
+        if sessionid in self.sessions:
+            return self.sessions[sessionid]['username']
+        return None
 
     def get_group_inbox(self, group_name):
         if group_name not in self.groups:
@@ -31,7 +36,7 @@ class Chat:
         if group_name not in self.groups:
             return {'status': 'ERROR', 'message': 'Group Tidak Ditemukan'}
         timestamp = datetime.now().isoformat()
-        msg = {'msg_from': username_from, 'msg': message, 'timestamp': timestamp}
+        msg = {'msg_from': username_from, 'msg': f"{username_from}: {message}", 'timestamp': timestamp}
         self.group_messages[group_name].append(msg)
         logging.warning(f"Group message sent from {username_from} to {group_name}: {msg}")
         return {'status': 'OK', 'message': 'Message Sent to Group'}
@@ -75,6 +80,16 @@ class Chat:
                 message = " ".join(j[3:])
                 usernamefrom = self.sessions[sessionid]['username']
                 return self.send_message(usernamefrom, usernameto, message)
+            elif command == 'sendrealm':
+                usernamefrom = j[1].strip()
+                usernameto = j[2].strip()
+                message = " ".join(j[3:])
+                return self.send_message(usernamefrom, usernameto, message)
+            elif command == 'sendgrouprealm':
+                usernamefrom = j[1].strip()
+                group_name = j[2].strip()
+                message = " ".join(j[3:])
+                return self.send_group_message(usernamefrom, group_name, message)
             elif command == 'inbox':
                 sessionid = j[1].strip()
                 if sessionid not in self.sessions:
@@ -203,8 +218,5 @@ class Chat:
             all_msgs.extend(messages)
             
         all_msgs.sort(key=lambda x: x['timestamp'])
-        logging.warning(f"Inbox for {username} - All Messages: {all_msgs}")
-        return {'status': 'OK', 'messages': all_msgs}
-    
         logging.warning(f"Inbox for {username} - All Messages: {all_msgs}")
         return {'status': 'OK', 'messages': all_msgs}

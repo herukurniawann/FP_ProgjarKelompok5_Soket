@@ -49,6 +49,18 @@ class ChatClient:
         string = f"send {self.tokenid} {usernameto} {message} \r\n"
         return self.sendstring(string)
 
+    def send_realm_message(self, usernameto, message):
+        if not self.tokenid:
+            return "Error, not authorized"
+        string = f"sendrealm {self.tokenid} {usernameto} {message} \r\n"
+        return self.sendstring(string)
+
+    def send_group_realm_message(self, group_name, message):
+        if not self.tokenid:
+            return "Error, not authorized"
+        string = f"sendgrouprealm {self.tokenid} {group_name} {message} \r\n"
+        return self.sendstring(string)
+
     def send_file(self, usernameto, file_path):
         if not self.tokenid:
             return "Error, not authorized"
@@ -105,18 +117,6 @@ class ChatClient:
         file_content_encoded = base64.b64encode(file_content).decode()
         string = f"sendgroupfile {self.tokenid} {group_name} {file_name} \r\n\r\n{file_content_encoded}\r\n\r\n"
         
-        return self.sendstring(string)
-    
-    def send_realm_message(self, username_to, message) :
-        if not self.tokenid:
-            return "Error, not authorized"
-        string = f"sendrealm {username_to} {message} \r\n"
-        return self.sendstring(string)
-    
-    def send_group_realm_message(self, group_name, message):
-        if not self.tokenid:
-            return "Error, not authorized"
-        string = f"sendgrouprealm {group_name} {message}"
         return self.sendstring(string)
 
     def logout(self):
