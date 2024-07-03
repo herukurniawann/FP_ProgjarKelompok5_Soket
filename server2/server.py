@@ -13,7 +13,7 @@ from threading import Thread
 chatserver = Chat()
 
 PORT = 8001
-DIRECTORY = "file"
+DIRECTORY = "server2/file"
 
 class FileRequestHandler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
