@@ -6,12 +6,12 @@
 
 | Nama Anggota                | NRP        | Tugas | GitHub Username                    |
 | --------------------------- | ---------- | ----- | ---------------------------------- |
-| Radhiyan Muhammad Hisan     | 5025211XXX |       |                                    |
-| Arfi Raushani Fikra         | 5025211XXX |       |                                    |
-| Muhammad Daffa Ashdaqfillah | 5025211015 |       | [@daf2a](https://github.com/daf2a) |
-| Baihaqi Rizki Nurfajri      | 5025211044 |       |                                    |
-| Najma Ulya Agustina         | 5025211XXX |       |                                    |
-| Heru Dwi Kurniawan          | 5025211055 |       |                                    |
+| Radhiyan Muhammad Hisan     | 5025211166 | Send private & group, realm | [@SanGit56](https://github.com/SanGit56) |
+| Arfi Raushani Fikra         | 5025211084 |  |                                    |
+| Muhammad Daffa Ashdaqfillah | 5025211015 |  | [@daf2a](https://github.com/daf2a) |
+| Baihaqi Rizki Nurfajri      | 5025211044 |  |                                    |
+| Najma Ulya Agustina         | 5025211239 |  |                                    |
+| Heru Dwi Kurniawan          | 5025211055 |  |                                    |
 
 ### 📂 Repository Tugas di GitHub
 
