@@ -10,7 +10,7 @@
 | Arfi Raushani Fikra         | 5025211084 |  |                                    |
 | Muhammad Daffa Ashdaqfillah | 5025211015 |  | [@daf2a](https://github.com/daf2a) |
 | Baihaqi Rizki Nurfajri      | 5025211044 |  |                                    |
-| Najma Ulya Agustina         | 5025211239 |  |                                    |
+| Najma Ulya Agustina         | 5025211239 |  |[@Ulya321](https://github.com/Ulya321)|
 | Heru Dwi Kurniawan          | 5025211055 |  |                                    |
 
 ### 📂 Repository Tugas di GitHub
